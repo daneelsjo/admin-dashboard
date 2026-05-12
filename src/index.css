@@ -1,0 +1,9 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Zorgt voor een donkere scrollbar op dark backgrounds */
+* {
+  scrollbar-color: #3f3f46 transparent;
+}

@@ -1,0 +1,22 @@
+// firestore.rules
+// Deploy met: firebase deploy --only firestore:rules
+//
+// KRITIEK: Alleen jouw eigen UID mag lezen/schrijven.
+// Vervang "JOUW_UID_HIER" met jouw Firebase Auth UID.
+// Vind je UID in: Firebase Console → Authentication → Users
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Domains collectie: alleen jij
+    match /domains/{docId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == "JOUW_UID_HIER";
+    }
+
+    // Weiger alles wat niet expliciet toegestaan is
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

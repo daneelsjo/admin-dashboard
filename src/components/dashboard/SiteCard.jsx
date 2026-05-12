@@ -1,0 +1,92 @@
+// src/components/dashboard/SiteCard.jsx
+import { ExternalLink, GitBranch as GithubIcon, Flame } from "lucide-react";
+import { clsx } from "clsx";
+import { StatusBadge } from "./StatusBadge";
+import { useGitHubStatus, getStatusVariant } from "../../hooks/useGitHubStatus";
+import { usePageSpeed, getScoreColor } from "../../hooks/usePageSpeed";
+import { useUptimeCheck } from "../../hooks/useUptimeCheck";
+import { getGitHubUrl, getFirebaseConsoleUrl, getGitHubActionsUrl } from "../../config/sites";
+
+function QuickLink({ href, icon: Icon, label }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-zinc-700 hover:text-white transition-colors"
+      title={label}
+    >
+      <Icon size={13} />
+      {label}
+    </a>
+  );
+}
+
+export function SiteCard({ site }) {
+  const { data: ghData, isLoading: ghLoading } = useGitHubStatus(site.owner, site.repo);
+  const { data: psData, isLoading: psLoading } = usePageSpeed(site.url);
+  const { data: upData, isLoading: upLoading } = useUptimeCheck(site.url);
+
+  const statusVariant = ghLoading
+    ? "unknown"
+    : getStatusVariant(ghData?.status, ghData?.conclusion);
+
+  const score = psData?.score ?? null;
+
+  return (
+    <div className="group relative rounded-xl border border-zinc-800 bg-zinc-900 p-5 transition-all hover:border-zinc-600 hover:shadow-lg hover:shadow-black/40">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-white text-sm">{site.name}</h3>
+          <p className="mt-0.5 text-xs text-zinc-500">{site.description}</p>
+        </div>
+
+        {/* Uptime dot */}
+        {upLoading ? (
+          <div className="mt-0.5 h-2.5 w-2.5 rounded-full bg-zinc-700 animate-pulse" />
+        ) : (
+          <div
+            className={clsx(
+              "mt-0.5 h-2.5 w-2.5 rounded-full ring-2",
+              upData?.up
+                ? "bg-emerald-400 ring-emerald-900"
+                : "bg-red-500 ring-red-900"
+            )}
+            title={upData?.up ? `Online (HTTP ${upData.status})` : "Offline"}
+          />
+        )}
+      </div>
+
+      {/* Metrics row */}
+      <div className="mt-4 flex items-center gap-3">
+        {/* CI/CD Status */}
+        <StatusBadge variant={statusVariant} />
+
+        {/* PageSpeed score */}
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-zinc-500">PSI</span>
+          {psLoading ? (
+            <span className="text-xs text-zinc-600 animate-pulse">—</span>
+          ) : (
+            <span className={clsx("text-xs font-bold tabular-nums", getScoreColor(score))}>
+              {score ?? "—"}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Quick links */}
+      <div className="mt-4 flex flex-wrap items-center gap-1 border-t border-zinc-800 pt-3">
+        <QuickLink href={site.url} icon={ExternalLink} label="Live" />
+        <QuickLink href={getGitHubActionsUrl(site.owner, site.repo)} icon={GithubIcon} label="Actions" />
+        <QuickLink href={getGitHubUrl(site.owner, site.repo)} icon={GithubIcon} label="Repo" />
+        <QuickLink
+          href={getFirebaseConsoleUrl(site.firebaseProject)}
+          icon={Flame}
+          label="Firebase"
+        />
+      </div>
+    </div>
+  );
+}
