@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "admin-dashboard-jo",
     "public": "dist",
     "ignore": [
       "firebase.json",
