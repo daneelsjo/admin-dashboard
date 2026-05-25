@@ -1,18 +1,21 @@
 // src/components/dashboard/GitHubActionsMonitor.jsx
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useRef, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { nl } from "date-fns/locale";
-import { ExternalLink, RefreshCw, Clock, GitBranch as GithubIcon, Zap } from "lucide-react";
+import {
+  ExternalLink, RefreshCw, Clock, GitBranch as GithubIcon,
+  Zap, Bell, BellOff, Search, RotateCcw,
+} from "lucide-react";
 import { clsx } from "clsx";
 import { getGitHubActionsUrl } from "../../config/sites";
 import { StatusBadge } from "./StatusBadge";
 import { getStatusVariant } from "../../hooks/useGitHubStatus";
 
-const INTERVAL_DEV  = 1000 * 20;        // 20 seconden
-const INTERVAL_IDLE = 1000 * 60 * 60;  // 1 uur
+const INTERVAL_DEV  = 1000 * 20;
+const INTERVAL_IDLE = 1000 * 60 * 60;
 
-const IS_PROD   = import.meta.env.PROD;
+const IS_PROD    = import.meta.env.PROD;
 const VITE_TOKEN = import.meta.env.VITE_GITHUB_TOKEN;
 
 async function fetchRepoRuns(owner, repo) {
@@ -55,12 +58,10 @@ const borderByVariant = {
 function RunRow({ run }) {
   const variant = getStatusVariant(run.status, run.conclusion);
   return (
-    <div
-      className={clsx(
-        "flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-zinc-800/60 transition-colors",
-        borderByVariant[variant] ?? borderByVariant.unknown
-      )}
-    >
+    <div className={clsx(
+      "flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-zinc-800/60 transition-colors",
+      borderByVariant[variant] ?? borderByVariant.unknown
+    )}>
       <div className="flex items-center gap-3 min-w-0">
         <StatusBadge variant={variant} />
         <span className="text-xs text-white truncate">
@@ -91,15 +92,39 @@ function RunRow({ run }) {
   );
 }
 
-function RepoSection({ site, pollInterval }) {
+function RepoSection({ site, pollInterval, failedOnly }) {
+  const queryClient = useQueryClient();
   const { data, isLoading, isFetching, dataUpdatedAt, isError } =
     useRepoRuns(site.owner, site.repo, pollInterval);
+  const lastNotifiedId = useRef(null);
 
   const runs = data?.runs ?? [];
   const fetchError = data?.error ?? null;
-  const latestVariant = runs[0]
-    ? getStatusVariant(runs[0].status, runs[0].conclusion)
+  const latestRun = runs[0] ?? null;
+  const latestVariant = latestRun
+    ? getStatusVariant(latestRun.status, latestRun.conclusion)
     : "unknown";
+
+  // Send browser notification when a new failure is detected
+  useEffect(() => {
+    if (!latestRun) return;
+    if (latestVariant !== "failure") return;
+    if (Notification.permission !== "granted") return;
+    if (lastNotifiedId.current === latestRun.id) return;
+    lastNotifiedId.current = latestRun.id;
+    const msg = latestRun.head_commit?.message?.split("\n")[0] ?? latestRun.name ?? "Deploy mislukt";
+    new Notification(`Deploy mislukt — ${site.name}`, {
+      body: msg,
+      icon: "/favicon.ico",
+    });
+  }, [latestRun?.id, latestVariant, site.name]);
+
+  // Hidden when "failed only" filter is on and latest isn't a failure
+  if (failedOnly && latestVariant !== "failure") return null;
+
+  function reload() {
+    queryClient.invalidateQueries({ queryKey: ["gh-actions", site.owner, site.repo] });
+  }
 
   const headerAccent = {
     success: "border-t-emerald-600",
@@ -120,13 +145,20 @@ function RepoSection({ site, pollInterval }) {
             {site.owner}/{site.repo}
           </span>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {isFetching && <RefreshCw size={12} className="text-zinc-500 animate-spin" />}
           {dataUpdatedAt && (
             <span className="text-xs text-zinc-600">
               {formatDistanceToNow(dataUpdatedAt, { addSuffix: true })}
             </span>
           )}
+          <button
+            onClick={reload}
+            title="Herladen"
+            className="rounded p-1 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+          >
+            <RotateCcw size={12} />
+          </button>
           <a
             href={getGitHubActionsUrl(site.owner, site.repo)}
             target="_blank"
@@ -183,6 +215,11 @@ export function GitHubActionsMonitor({ sites = [] }) {
   const [devMode, setDevMode] = useState(
     () => localStorage.getItem("gh-devmode") === "true"
   );
+  const [search, setSearch] = useState("");
+  const [failedOnly, setFailedOnly] = useState(false);
+  const [notifPerm, setNotifPerm] = useState(
+    () => ("Notification" in window ? Notification.permission : "denied")
+  );
 
   function toggleDevMode() {
     setDevMode((prev) => {
@@ -192,7 +229,15 @@ export function GitHubActionsMonitor({ sites = [] }) {
     });
   }
 
+  async function requestNotifPermission() {
+    const perm = await Notification.requestPermission();
+    setNotifPerm(perm);
+  }
+
   const pollInterval = devMode ? INTERVAL_DEV : INTERVAL_IDLE;
+  const filteredSites = sites.filter((s) =>
+    s.name?.toLowerCase().includes(search.toLowerCase())
+  );
 
   if (sites.length === 0) {
     return (
@@ -210,10 +255,54 @@ export function GitHubActionsMonitor({ sites = [] }) {
 
   return (
     <section>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
+      {/* Toolbar */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mr-auto">
           GitHub Actions
         </h2>
+
+        {/* Notification permission */}
+        {notifPerm === "granted" ? (
+          <span className="flex items-center gap-1 text-xs text-emerald-600" title="Meldingen ingeschakeld">
+            <Bell size={11} />
+          </span>
+        ) : (
+          <button
+            onClick={requestNotifPermission}
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
+            title="Meldingen inschakelen voor deploy-fouten"
+          >
+            <Bell size={11} />
+            Meldingen
+          </button>
+        )}
+
+        {/* Search */}
+        <div className="relative">
+          <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Zoeken…"
+            className="rounded-lg border border-zinc-700 bg-zinc-800 pl-7 pr-3 py-1.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500 w-36"
+          />
+        </div>
+
+        {/* Failed only toggle */}
+        <button
+          onClick={() => setFailedOnly((v) => !v)}
+          className={clsx(
+            "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+            failedOnly
+              ? "border-red-800 bg-red-950 text-red-400 hover:bg-red-900"
+              : "border-zinc-700 bg-zinc-800 text-zinc-400 hover:text-white"
+          )}
+          title={failedOnly ? "Toon alle repos" : "Toon alleen mislukte deploys"}
+        >
+          <BellOff size={11} />
+          {failedOnly ? "Alleen fouten" : "Alle repos"}
+        </button>
 
         {/* Dev mode toggle */}
         <button
@@ -231,11 +320,22 @@ export function GitHubActionsMonitor({ sites = [] }) {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {sites.map((site) => (
-          <RepoSection key={site.id} site={site} pollInterval={pollInterval} />
-        ))}
-      </div>
+      {filteredSites.length === 0 ? (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-10 text-center">
+          <p className="text-sm text-zinc-500">Geen resultaten voor "{search}".</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {filteredSites.map((site) => (
+            <RepoSection
+              key={site.id}
+              site={site}
+              pollInterval={pollInterval}
+              failedOnly={failedOnly}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

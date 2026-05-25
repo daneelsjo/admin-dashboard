@@ -6,8 +6,10 @@ import { SiteCard } from "../components/dashboard/SiteCard";
 import { DomainTable } from "../components/admin/DomainTable";
 import { SiteForm } from "../components/admin/SiteForm";
 import { GitHubActionsMonitor } from "../components/dashboard/GitHubActionsMonitor";
-import { Flame, LayoutGrid, Database, LogOut, RefreshCw, GitPullRequest, Globe } from "lucide-react";
+import { Flame, LayoutGrid, Database, LogOut, RefreshCw, GitPullRequest, Globe, AlertTriangle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useDomainWarnings } from "../hooks/useDomainWarnings";
+import { differenceInDays, parseISO, isPast } from "date-fns";
 
 const TABS = [
   { id: "overview",  label: "Overzicht",      Icon: LayoutGrid    },
@@ -21,6 +23,7 @@ export function DashboardPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const queryClient = useQueryClient();
   const { sites, loading: sitesLoading } = useSites();
+  const expiringDomains = useDomainWarnings();
 
   function handleRefresh() {
     queryClient.invalidateQueries();
@@ -94,6 +97,35 @@ export function DashboardPage() {
         {/* Tab content */}
         {activeTab === "overview" && (
           <section>
+            {/* Domain expiry warning banner */}
+            {expiringDomains.length > 0 && (
+              <div className="mb-6 rounded-xl border border-amber-800/60 bg-amber-950/40 px-4 py-3 flex items-start gap-3">
+                <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-amber-300">
+                    {expiringDomains.length === 1
+                      ? "1 domein verloopt binnenkort"
+                      : `${expiringDomains.length} domeinen verlopen binnenkort`}
+                  </p>
+                  <ul className="mt-1 space-y-0.5">
+                    {expiringDomains.map((d) => {
+                      const expired = isPast(parseISO(d.expiryDate));
+                      const days = differenceInDays(parseISO(d.expiryDate), new Date());
+                      return (
+                        <li key={d.id} className="text-xs text-amber-500/80">
+                          <span className="font-mono text-amber-300">{d.domain ?? d.name}</span>
+                          {" — "}
+                          {expired
+                            ? <span className="text-red-400">verlopen</span>
+                            : `verloopt over ${days} dag${days !== 1 ? "en" : ""}`}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+            )}
+
             <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-zinc-500">
               Websites ({sitesLoading ? "…" : sites.length})
             </h2>
