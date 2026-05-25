@@ -50,6 +50,9 @@ export function SiteCard({ site }) {
         <div>
           <h3 className="font-semibold text-white text-sm">{site.name}</h3>
           <p className="mt-0.5 text-xs text-zinc-500">{site.description}</p>
+          {site.notes && (
+            <p className="mt-0.5 text-xs text-zinc-600 italic">{site.notes}</p>
+          )}
         </div>
 
         {/* Uptime dot + % */}

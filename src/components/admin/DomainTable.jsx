@@ -13,15 +13,16 @@ import { db } from "../../firebase";
 import { differenceInDays, parseISO, format, isPast } from "date-fns";
 import { Plus, Trash2, AlertTriangle, CheckCircle, Pencil } from "lucide-react";
 import { clsx } from "clsx";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 
 const COLLECTION = "domains";
 
 function ExpiryBadge({ dateStr }) {
   if (!dateStr) return <span className="text-zinc-500 text-xs">—</span>;
 
-  const date = parseISO(dateStr);
+  const date     = parseISO(dateStr);
   const daysLeft = differenceInDays(date, new Date());
-  const expired = isPast(date);
+  const expired  = isPast(date);
 
   return (
     <span
@@ -34,7 +35,7 @@ function ExpiryBadge({ dateStr }) {
           : "border-zinc-700 bg-zinc-800 text-zinc-400"
       )}
     >
-      {expired ? <AlertTriangle size={10} /> : daysLeft <= 30 ? <AlertTriangle size={10} /> : <CheckCircle size={10} />}
+      {expired || daysLeft <= 30 ? <AlertTriangle size={10} /> : <CheckCircle size={10} />}
       {expired ? "Verlopen" : `${daysLeft}d`}
     </span>
   );
@@ -43,13 +44,13 @@ function ExpiryBadge({ dateStr }) {
 const emptyForm = { name: "", provider: "", expiryDate: "" };
 
 export function DomainTable() {
-  const [domains, setDomains] = useState([]);
-  const [form, setForm] = useState(emptyForm);
-  const [editId, setEditId] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [domains, setDomains]         = useState([]);
+  const [form, setForm]               = useState(emptyForm);
+  const [editId, setEditId]           = useState(null);
+  const [showForm, setShowForm]       = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [confirmItem, setConfirmItem] = useState(null); // { id, name }
 
-  // Realtime Firestore listener
   useEffect(() => {
     const unsub = onSnapshot(collection(db, COLLECTION), (snap) => {
       setDomains(
@@ -61,7 +62,6 @@ export function DomainTable() {
     return unsub;
   }, []);
 
-  // Waarschuwingen voor vervaldatums < 30 dagen
   const expiringSoon = domains.filter((d) => {
     if (!d.expiryDate) return false;
     const days = differenceInDays(parseISO(d.expiryDate), new Date());
@@ -91,13 +91,22 @@ export function DomainTable() {
     setShowForm(true);
   }
 
-  async function handleDelete(id) {
-    if (!confirm("Domein verwijderen?")) return;
-    await deleteDoc(doc(db, COLLECTION, id));
+  async function confirmDelete() {
+    await deleteDoc(doc(db, COLLECTION, confirmItem.id));
+    setConfirmItem(null);
   }
 
   return (
     <div className="space-y-4">
+      <ConfirmDialog
+        open={!!confirmItem}
+        title="Domein verwijderen"
+        message={`"${confirmItem?.name}" permanent verwijderen? Dit kan niet ongedaan worden gemaakt.`}
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmItem(null)}
+        danger
+      />
+
       {/* Expiry warning banner */}
       {expiringSoon.length > 0 && (
         <div className="flex items-center gap-3 rounded-lg border border-amber-800 bg-amber-950/50 p-3">
@@ -111,7 +120,7 @@ export function DomainTable() {
 
       {/* Header + Add button */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-white">Domeinen & Hosting</h2>
+        <h2 className="text-sm font-semibold text-white">Domeinen &amp; Hosting</h2>
         <button
           onClick={() => { setShowForm(!showForm); setEditId(null); setForm(emptyForm); }}
           className="flex items-center gap-1.5 rounded-lg bg-zinc-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-600 transition-colors"
@@ -128,9 +137,9 @@ export function DomainTable() {
           className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 sm:grid-cols-3"
         >
           {[
-            { field: "name", placeholder: "Domeinnaam (bijv. mijnsite.be)", label: "Domein" },
-            { field: "provider", placeholder: "Provider (bijv. TransIP)", label: "Provider" },
-            { field: "expiryDate", placeholder: "", label: "Vervaldatum", type: "date" },
+            { field: "name",       placeholder: "Domeinnaam (bijv. mijnsite.be)", label: "Domein" },
+            { field: "provider",   placeholder: "Provider (bijv. TransIP)",       label: "Provider" },
+            { field: "expiryDate", placeholder: "",                               label: "Vervaldatum", type: "date" },
           ].map(({ field, placeholder, label, type = "text" }) => (
             <div key={field} className="space-y-1">
               <label className="text-xs text-zinc-400">{label}</label>
@@ -191,9 +200,7 @@ export function DomainTable() {
                 <td className="px-4 py-3 font-medium text-white">{domain.name}</td>
                 <td className="px-4 py-3 text-zinc-400">{domain.provider}</td>
                 <td className="px-4 py-3 text-zinc-400">
-                  {domain.expiryDate
-                    ? format(parseISO(domain.expiryDate), "dd MMM yyyy")
-                    : "—"}
+                  {domain.expiryDate ? format(parseISO(domain.expiryDate), "dd MMM yyyy") : "—"}
                 </td>
                 <td className="px-4 py-3">
                   <ExpiryBadge dateStr={domain.expiryDate} />
@@ -207,7 +214,7 @@ export function DomainTable() {
                       <Pencil size={13} />
                     </button>
                     <button
-                      onClick={() => handleDelete(domain.id)}
+                      onClick={() => setConfirmItem({ id: domain.id, name: domain.name })}
                       className="rounded p-1 text-zinc-500 hover:text-red-400 transition-colors"
                     >
                       <Trash2 size={13} />

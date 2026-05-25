@@ -1,12 +1,26 @@
 // src/hooks/usePageSpeed.js
 import { useQuery } from "@tanstack/react-query";
 
-const PSI_API_KEY = import.meta.env.VITE_PAGESPEED_API_KEY;
+const PSI_API_KEY  = import.meta.env.VITE_PAGESPEED_API_KEY;
+const CACHE_TTL    = 1000 * 60 * 60 * 24; // 24 uur
+const cacheKey     = (url) => `psi-v1-${btoa(url).slice(0, 20)}`;
+
+function readCache(url) {
+  try {
+    const cached = JSON.parse(localStorage.getItem(cacheKey(url)));
+    if (cached && Date.now() - cached.t < CACHE_TTL) return { data: cached.data, t: cached.t };
+  } catch {}
+  return null;
+}
+
+function writeCache(url, data) {
+  try {
+    localStorage.setItem(cacheKey(url), JSON.stringify({ t: Date.now(), data }));
+  } catch {}
+}
 
 async function fetchPageSpeed(url) {
-  const endpoint = new URL(
-    "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
-  );
+  const endpoint = new URL("https://www.googleapis.com/pagespeedonline/v5/runPagespeed");
   endpoint.searchParams.set("url", url);
   endpoint.searchParams.set("strategy", "mobile");
   endpoint.searchParams.set("category", "performance");
@@ -15,15 +29,18 @@ async function fetchPageSpeed(url) {
   const res = await fetch(endpoint.toString());
   if (!res.ok) throw new Error(`PageSpeed API error: ${res.status}`);
 
-  const data = await res.json();
+  const data  = await res.json();
   const score = data.lighthouseResult?.categories?.performance?.score;
 
-  return {
+  const result = {
     score: score != null ? Math.round(score * 100) : null,
     fcp: data.lighthouseResult?.audits?.["first-contentful-paint"]?.displayValue,
     lcp: data.lighthouseResult?.audits?.["largest-contentful-paint"]?.displayValue,
     cls: data.lighthouseResult?.audits?.["cumulative-layout-shift"]?.displayValue,
   };
+
+  writeCache(url, result);
+  return result;
 }
 
 export function getScoreColor(score) {
@@ -41,10 +58,13 @@ export function getScoreBg(score) {
 }
 
 export function usePageSpeed(url) {
+  const cached = readCache(url);
   return useQuery({
     queryKey: ["pagespeed", url],
     queryFn: () => fetchPageSpeed(url),
-    staleTime: 1000 * 60 * 30, // 30 min cache (PSI calls zijn duur)
+    staleTime: CACHE_TTL,
+    initialData: cached?.data,
+    initialDataUpdatedAt: cached?.t ?? 0,
     retry: 1,
   });
 }

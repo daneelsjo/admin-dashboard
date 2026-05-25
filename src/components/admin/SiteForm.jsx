@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useSites } from "../../hooks/useSites";
 import { Plus, Pencil, Trash2, ExternalLink, X } from "lucide-react";
 import { clsx } from "clsx";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 
 const emptyForm = {
   name: "",
@@ -11,23 +12,26 @@ const emptyForm = {
   owner: "",
   repo: "",
   firebaseProject: "",
+  notes: "",
 };
 
 const FIELDS = [
-  { name: "name",            label: "Naam",               placeholder: "Optech werksite",         required: true,  col: 1 },
-  { name: "url",             label: "Live URL",            placeholder: "https://mijnsite.be/",    required: true,  col: 1 },
-  { name: "description",     label: "Omschrijving",        placeholder: "Korte beschrijving",       required: false, col: 2 },
-  { name: "owner",           label: "GitHub owner",        placeholder: "daneelsjo",               required: true,  col: 1 },
-  { name: "repo",            label: "GitHub repository",   placeholder: "mijn-repo-naam",          required: true,  col: 1 },
-  { name: "firebaseProject", label: "Firebase project ID", placeholder: "mijn-project-id",         required: false, col: 2 },
+  { name: "name",            label: "Naam",               placeholder: "Optech werksite",           required: true,  col: 1 },
+  { name: "url",             label: "Live URL",            placeholder: "https://mijnsite.be/",      required: true,  col: 1 },
+  { name: "description",     label: "Omschrijving",        placeholder: "Korte beschrijving",         required: false, col: 2 },
+  { name: "owner",           label: "GitHub owner",        placeholder: "daneelsjo",                 required: true,  col: 1 },
+  { name: "repo",            label: "GitHub repository",   placeholder: "mijn-repo-naam",            required: true,  col: 1 },
+  { name: "firebaseProject", label: "Firebase project ID", placeholder: "mijn-project-id",           required: false, col: 2 },
+  { name: "notes",           label: "Notities",            placeholder: "Klant: X · staging · ...", required: false, col: 2, textarea: true },
 ];
 
 export function SiteForm() {
   const { sites, loading, addSite, updateSite, deleteSite } = useSites();
-  const [form, setForm] = useState(emptyForm);
-  const [editId, setEditId] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [form, setForm]           = useState(emptyForm);
+  const [editId, setEditId]       = useState(null);
+  const [showForm, setShowForm]   = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [confirmItem, setConfirmItem] = useState(null); // { id, name }
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -51,12 +55,13 @@ export function SiteForm() {
 
   function startEdit(site) {
     setForm({
-      name: site.name ?? "",
-      description: site.description ?? "",
-      url: site.url ?? "",
-      owner: site.owner ?? "",
-      repo: site.repo ?? "",
+      name:            site.name            ?? "",
+      description:     site.description     ?? "",
+      url:             site.url             ?? "",
+      owner:           site.owner           ?? "",
+      repo:            site.repo            ?? "",
       firebaseProject: site.firebaseProject ?? "",
+      notes:           site.notes           ?? "",
     });
     setEditId(site.id);
     setShowForm(true);
@@ -69,13 +74,22 @@ export function SiteForm() {
     setShowForm(false);
   }
 
-  async function handleDelete(id, name) {
-    if (!confirm(`"${name}" verwijderen uit het dashboard?`)) return;
-    await deleteSite(id);
+  async function confirmDelete() {
+    await deleteSite(confirmItem.id);
+    setConfirmItem(null);
   }
 
   return (
     <div className="space-y-4">
+      <ConfirmDialog
+        open={!!confirmItem}
+        title="Website verwijderen"
+        message={`"${confirmItem?.name}" permanent verwijderen uit het dashboard? Dit kan niet ongedaan worden gemaakt.`}
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmItem(null)}
+        danger
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -104,21 +118,32 @@ export function SiteForm() {
           </p>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {FIELDS.map(({ name, label, placeholder, required, col }) => (
+            {FIELDS.map(({ name, label, placeholder, required, col, textarea }) => (
               <div key={name} className={clsx("space-y-1", col === 2 && "sm:col-span-2")}>
                 <label className="text-xs text-zinc-400">
                   {label}
                   {!required && <span className="ml-1 text-zinc-600">(optioneel)</span>}
                 </label>
-                <input
-                  type="text"
-                  name={name}
-                  value={form[name]}
-                  onChange={handleChange}
-                  placeholder={placeholder}
-                  required={required}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-zinc-500 focus:outline-none transition-colors"
-                />
+                {textarea ? (
+                  <textarea
+                    name={name}
+                    value={form[name]}
+                    onChange={handleChange}
+                    placeholder={placeholder}
+                    rows={2}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-zinc-500 focus:outline-none transition-colors resize-none"
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    name={name}
+                    value={form[name]}
+                    onChange={handleChange}
+                    placeholder={placeholder}
+                    required={required}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-zinc-500 focus:outline-none transition-colors"
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -182,6 +207,9 @@ export function SiteForm() {
                   {site.description && (
                     <p className="text-xs text-zinc-500 mt-0.5">{site.description}</p>
                   )}
+                  {site.notes && (
+                    <p className="text-xs text-zinc-600 italic mt-0.5">{site.notes}</p>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   {site.url ? (
@@ -214,7 +242,7 @@ export function SiteForm() {
                       <Pencil size={13} />
                     </button>
                     <button
-                      onClick={() => handleDelete(site.id, site.name)}
+                      onClick={() => setConfirmItem({ id: site.id, name: site.name })}
                       title="Verwijderen"
                       className="rounded p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-700 transition-colors"
                     >
