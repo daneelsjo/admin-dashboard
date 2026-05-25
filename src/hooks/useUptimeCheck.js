@@ -4,19 +4,20 @@ import { recordUptimeCheck } from "./useUptimeHistory";
 
 async function checkUptime(url) {
   try {
-    const proxyUrl = `https://api.allorigins.win/head?url=${encodeURIComponent(url)}`;
-    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) {
-      recordUptimeCheck(url, false);
-      return { up: false, status: res.status, latency: null };
-    }
-    const data = await res.json();
-    const up = data.status?.http_code >= 200 && data.status?.http_code < 400;
-    recordUptimeCheck(url, up);
-    return { up, status: data.status?.http_code ?? null, latency: null };
-  } catch (err) {
+    // no-cors: browser sends request directly without needing CORS headers on the target.
+    // Throws only on a real network failure (server down, DNS failure, timeout).
+    // This avoids dependence on unreliable third-party CORS proxies.
+    await fetch(url, {
+      method: "HEAD",
+      mode: "no-cors",
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
+    recordUptimeCheck(url, true);
+    return { up: true, status: null };
+  } catch {
     recordUptimeCheck(url, false);
-    return { up: false, status: null, latency: null, error: err.message };
+    return { up: false, status: null };
   }
 }
 

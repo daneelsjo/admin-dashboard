@@ -76,7 +76,7 @@ export function SiteCard({ site }) {
                   ? "bg-emerald-400 ring-emerald-900"
                   : "bg-red-500 ring-red-900"
               )}
-              title={upData?.up ? `Online (HTTP ${upData.status})` : "Offline"}
+              title={upData?.up ? "Online" : "Offline"}
             />
           )}
         </div>
