@@ -63,7 +63,9 @@ function RunRow({ run }) {
     >
       <div className="flex items-center gap-3 min-w-0">
         <StatusBadge variant={variant} />
-        <span className="text-xs text-white truncate">{run.name}</span>
+        <span className="text-xs text-white truncate">
+          {run.head_commit?.message?.split("\n")[0] ?? run.name}
+        </span>
         {run.head_branch && (
           <span className="hidden sm:inline text-xs text-zinc-600 font-mono truncate">
             {run.head_branch}
