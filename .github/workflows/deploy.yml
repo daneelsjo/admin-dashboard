@@ -33,15 +33,6 @@ jobs:
           VITE_GITHUB_TOKEN: ${{ secrets.VITE_GITHUB_TOKEN }}
           VITE_PAGESPEED_API_KEY: ${{ secrets.VITE_PAGESPEED_API_KEY }}
 
-      - name: Deploy Firestore Rules
-        run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/sa.json
-          npx -y firebase-tools deploy --only firestore:rules \
-            --project ${{ secrets.VITE_FIREBASE_PROJECT_ID }} \
-            --non-interactive
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
-
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
