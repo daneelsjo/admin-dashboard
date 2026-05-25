@@ -3,12 +3,14 @@ import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { SiteCard } from "../components/dashboard/SiteCard";
 import { DomainTable } from "../components/admin/DomainTable";
+import { GitHubActionsMonitor } from "../components/dashboard/GitHubActionsMonitor";
 import { SITES } from "../config/sites";
-import { Flame, LayoutGrid, Database, LogOut, RefreshCw } from "lucide-react";
+import { Flame, LayoutGrid, Database, LogOut, RefreshCw, GitPullRequest } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const TABS = [
   { id: "overview", label: "Overzicht", Icon: LayoutGrid },
+  { id: "actions", label: "GitHub Actions", Icon: GitPullRequest },
   { id: "domains", label: "Domeinen", Icon: Database },
 ];
 
@@ -99,6 +101,8 @@ export function DashboardPage() {
             </div>
           </section>
         )}
+
+        {activeTab === "actions" && <GitHubActionsMonitor />}
 
         {activeTab === "domains" && (
           <section>
