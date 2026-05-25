@@ -24,9 +24,11 @@ async function fetchRepoRuns(owner, repo) {
     url = `/api/github/${owner}/${repo}/runs?per_page=5`;
   }
   const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`API error ${res.status}`);
+  if (res.status === 404) return { runs: [], error: "repo_not_found" };
+  if (res.status === 401 || res.status === 403) return { runs: [], error: "no_access" };
+  if (!res.ok) throw new Error(`GitHub API ${res.status}`);
   const data = await res.json();
-  return data.workflow_runs ?? [];
+  return { runs: data.workflow_runs ?? [], error: null };
 }
 
 function useRepoRuns(owner, repo) {
@@ -89,11 +91,14 @@ function RunRow({ run }) {
 }
 
 function RepoSection({ site }) {
-  const { data: runs, isLoading, isFetching, dataUpdatedAt, isError } =
+  const { data, isLoading, isFetching, dataUpdatedAt, isError } =
     useRepoRuns(site.owner, site.repo);
 
+  const runs = data?.runs ?? [];
+  const fetchError = data?.error ?? null;
+
   const latestVariant =
-    runs?.[0] ? getStatusVariant(runs[0].status, runs[0].conclusion) : "unknown";
+    runs[0] ? getStatusVariant(runs[0].status, runs[0].conclusion) : "unknown";
 
   const headerAccent = {
     success: "border-t-emerald-600",
@@ -152,9 +157,20 @@ function RepoSection({ site }) {
         </div>
       ) : isError ? (
         <div className="px-4 py-6 text-center text-xs text-red-400">
-          Kon workflows niet ophalen — controleer of de API-server actief is.
+          Onverwachte fout — probeer de pagina te verversen.
         </div>
-      ) : runs?.length === 0 ? (
+      ) : fetchError === "no_access" ? (
+        <div className="px-4 py-6 text-center space-y-1">
+          <p className="text-xs text-amber-400">Geen toegang tot deze repo.</p>
+          <p className="text-xs text-zinc-600">
+            Controleer of <code className="text-zinc-400">VITE_GITHUB_TOKEN</code> is ingesteld als GitHub Secret en of het token toegang heeft tot deze repository.
+          </p>
+        </div>
+      ) : fetchError === "repo_not_found" ? (
+        <div className="px-4 py-6 text-center text-xs text-zinc-500">
+          Repository niet gevonden — controleer de owner/repo naam in het Websites-tabblad.
+        </div>
+      ) : runs.length === 0 ? (
         <div className="px-4 py-6 text-center text-xs text-zinc-600">
           Geen workflow-runs gevonden voor deze repo.
         </div>
