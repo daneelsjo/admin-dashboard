@@ -1,4 +1,5 @@
 // src/components/dashboard/GitHubActionsMonitor.jsx
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -8,8 +9,10 @@ import { getGitHubActionsUrl } from "../../config/sites";
 import { StatusBadge } from "./StatusBadge";
 import { getStatusVariant } from "../../hooks/useGitHubStatus";
 
-const POLL_INTERVAL = 1000 * 20;
-const IS_PROD = import.meta.env.PROD;
+const INTERVAL_DEV  = 1000 * 20;        // 20 seconden
+const INTERVAL_IDLE = 1000 * 60 * 60;  // 1 uur
+
+const IS_PROD   = import.meta.env.PROD;
 const VITE_TOKEN = import.meta.env.VITE_GITHUB_TOKEN;
 
 async function fetchRepoRuns(owner, repo) {
@@ -31,12 +34,12 @@ async function fetchRepoRuns(owner, repo) {
   return { runs: data.workflow_runs ?? [], error: null };
 }
 
-function useRepoRuns(owner, repo) {
+function useRepoRuns(owner, repo, pollInterval) {
   return useQuery({
     queryKey: ["gh-actions", owner, repo],
     queryFn: () => fetchRepoRuns(owner, repo),
-    refetchInterval: POLL_INTERVAL,
-    staleTime: POLL_INTERVAL,
+    refetchInterval: pollInterval,
+    staleTime: pollInterval,
     retry: 1,
   });
 }
@@ -51,7 +54,6 @@ const borderByVariant = {
 
 function RunRow({ run }) {
   const variant = getStatusVariant(run.status, run.conclusion);
-
   return (
     <div
       className={clsx(
@@ -71,10 +73,7 @@ function RunRow({ run }) {
       <div className="flex items-center gap-3 shrink-0">
         <span className="text-xs text-zinc-500 flex items-center gap-1">
           <Clock size={10} />
-          {formatDistanceToNow(new Date(run.updated_at), {
-            addSuffix: true,
-            locale: nl,
-          })}
+          {formatDistanceToNow(new Date(run.updated_at), { addSuffix: true, locale: nl })}
         </span>
         <a
           href={run.html_url}
@@ -90,15 +89,15 @@ function RunRow({ run }) {
   );
 }
 
-function RepoSection({ site }) {
+function RepoSection({ site, pollInterval }) {
   const { data, isLoading, isFetching, dataUpdatedAt, isError } =
-    useRepoRuns(site.owner, site.repo);
+    useRepoRuns(site.owner, site.repo, pollInterval);
 
   const runs = data?.runs ?? [];
   const fetchError = data?.error ?? null;
-
-  const latestVariant =
-    runs[0] ? getStatusVariant(runs[0].status, runs[0].conclusion) : "unknown";
+  const latestVariant = runs[0]
+    ? getStatusVariant(runs[0].status, runs[0].conclusion)
+    : "unknown";
 
   const headerAccent = {
     success: "border-t-emerald-600",
@@ -109,12 +108,7 @@ function RepoSection({ site }) {
   }[latestVariant];
 
   return (
-    <div
-      className={clsx(
-        "rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden border-t-2",
-        headerAccent
-      )}
-    >
+    <div className={clsx("rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden border-t-2", headerAccent)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-900/80">
         <div className="flex items-center gap-2 min-w-0">
@@ -125,14 +119,12 @@ function RepoSection({ site }) {
           </span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {isFetching && (
-            <RefreshCw size={12} className="text-zinc-500 animate-spin" />
-          )}
-          {dataUpdatedAt ? (
+          {isFetching && <RefreshCw size={12} className="text-zinc-500 animate-spin" />}
+          {dataUpdatedAt && (
             <span className="text-xs text-zinc-600">
               {formatDistanceToNow(dataUpdatedAt, { addSuffix: true })}
             </span>
-          ) : null}
+          )}
           <a
             href={getGitHubActionsUrl(site.owner, site.repo)}
             target="_blank"
@@ -163,7 +155,7 @@ function RepoSection({ site }) {
         <div className="px-4 py-6 text-center space-y-1">
           <p className="text-xs text-amber-400">Geen toegang tot deze repo.</p>
           <p className="text-xs text-zinc-600">
-            Controleer of <code className="text-zinc-400">VITE_GITHUB_TOKEN</code> is ingesteld als GitHub Secret en of het token toegang heeft tot deze repository.
+            Controleer of <code className="text-zinc-400">VITE_GITHUB_TOKEN</code> is ingesteld als GitHub Secret en toegang heeft tot deze repository.
           </p>
         </div>
       ) : fetchError === "repo_not_found" ? (
@@ -186,6 +178,20 @@ function RepoSection({ site }) {
 }
 
 export function GitHubActionsMonitor({ sites = [] }) {
+  const [devMode, setDevMode] = useState(
+    () => localStorage.getItem("gh-devmode") === "true"
+  );
+
+  function toggleDevMode() {
+    setDevMode((prev) => {
+      const next = !prev;
+      localStorage.setItem("gh-devmode", String(next));
+      return next;
+    });
+  }
+
+  const pollInterval = devMode ? INTERVAL_DEV : INTERVAL_IDLE;
+
   if (sites.length === 0) {
     return (
       <section>
@@ -194,9 +200,7 @@ export function GitHubActionsMonitor({ sites = [] }) {
         </h2>
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-12 text-center">
           <p className="text-sm text-zinc-500">Nog geen websites geconfigureerd.</p>
-          <p className="text-xs text-zinc-600 mt-1">
-            Voeg een website toe via het tabblad "Websites".
-          </p>
+          <p className="text-xs text-zinc-600 mt-1">Voeg een website toe via het tabblad "Websites".</p>
         </div>
       </section>
     );
@@ -208,15 +212,26 @@ export function GitHubActionsMonitor({ sites = [] }) {
         <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
           GitHub Actions
         </h2>
-        <span className="flex items-center gap-1.5 text-xs text-zinc-600">
-          <Zap size={11} className="text-amber-500" />
-          Live · elke 20s vernieuwd
-        </span>
+
+        {/* Dev mode toggle */}
+        <button
+          onClick={toggleDevMode}
+          className={clsx(
+            "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+            devMode
+              ? "border-amber-700 bg-amber-950 text-amber-400 hover:bg-amber-900"
+              : "border-zinc-700 bg-zinc-800 text-zinc-400 hover:text-white"
+          )}
+          title={devMode ? "Dev-modus aan — elke 20s" : "Idle-modus — elke 1 uur"}
+        >
+          <Zap size={11} className={devMode ? "text-amber-400" : "text-zinc-600"} />
+          {devMode ? "Dev · elke 20s" : "Idle · elke 1u"}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {sites.map((site) => (
-          <RepoSection key={site.id} site={site} />
+          <RepoSection key={site.id} site={site} pollInterval={pollInterval} />
         ))}
       </div>
     </section>
