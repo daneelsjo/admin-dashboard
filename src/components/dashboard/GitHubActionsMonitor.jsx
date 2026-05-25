@@ -8,10 +8,22 @@ import { getGitHubActionsUrl } from "../../config/sites";
 import { StatusBadge } from "./StatusBadge";
 import { getStatusVariant } from "../../hooks/useGitHubStatus";
 
-const POLL_INTERVAL = 1000 * 20; // 20 seconds
+const POLL_INTERVAL = 1000 * 20;
+const IS_PROD = import.meta.env.PROD;
+const VITE_TOKEN = import.meta.env.VITE_GITHUB_TOKEN;
 
 async function fetchRepoRuns(owner, repo) {
-  const res = await fetch(`/api/github/${owner}/${repo}/runs?per_page=5`);
+  let url, headers = {};
+  if (IS_PROD) {
+    url = `https://api.github.com/repos/${owner}/${repo}/actions/runs?per_page=5`;
+    headers = {
+      Accept: "application/vnd.github+json",
+      ...(VITE_TOKEN && { Authorization: `Bearer ${VITE_TOKEN}` }),
+    };
+  } else {
+    url = `/api/github/${owner}/${repo}/runs?per_page=5`;
+  }
+  const res = await fetch(url, { headers });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   const data = await res.json();
   return data.workflow_runs ?? [];
