@@ -1,23 +1,26 @@
 // src/pages/DashboardPage.jsx
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useSites } from "../hooks/useSites";
 import { SiteCard } from "../components/dashboard/SiteCard";
 import { DomainTable } from "../components/admin/DomainTable";
+import { SiteForm } from "../components/admin/SiteForm";
 import { GitHubActionsMonitor } from "../components/dashboard/GitHubActionsMonitor";
-import { SITES } from "../config/sites";
-import { Flame, LayoutGrid, Database, LogOut, RefreshCw, GitPullRequest } from "lucide-react";
+import { Flame, LayoutGrid, Database, LogOut, RefreshCw, GitPullRequest, Globe } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const TABS = [
-  { id: "overview", label: "Overzicht", Icon: LayoutGrid },
-  { id: "actions", label: "GitHub Actions", Icon: GitPullRequest },
-  { id: "domains", label: "Domeinen", Icon: Database },
+  { id: "overview",  label: "Overzicht",      Icon: LayoutGrid    },
+  { id: "actions",   label: "GitHub Actions",  Icon: GitPullRequest },
+  { id: "websites",  label: "Websites",        Icon: Globe         },
+  { id: "domains",   label: "Domeinen",        Icon: Database      },
 ];
 
 export function DashboardPage() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const queryClient = useQueryClient();
+  const { sites, loading: sitesLoading } = useSites();
 
   function handleRefresh() {
     queryClient.invalidateQueries();
@@ -45,7 +48,7 @@ export function DashboardPage() {
                 }`}
               >
                 <Icon size={13} />
-                {label}
+                <span className="hidden sm:inline">{label}</span>
               </button>
             ))}
           </nav>
@@ -75,10 +78,10 @@ export function DashboardPage() {
         {/* Stats row */}
         <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { label: "Websites", value: SITES.length },
-            { label: "Actief", value: SITES.length, sub: "monitored" },
-            { label: "Regio", value: "EU", sub: "Firebase" },
-            { label: "Stack", value: "React + Vite", sub: "dashboard" },
+            { label: "Websites",  value: sitesLoading ? "—" : sites.length },
+            { label: "Actief",    value: sitesLoading ? "—" : sites.length, sub: "monitored" },
+            { label: "Regio",     value: "EU",              sub: "Firebase" },
+            { label: "Stack",     value: "React + Vite",    sub: "dashboard" },
           ].map(({ label, value, sub }) => (
             <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
               <p className="text-xs text-zinc-500">{label}</p>
@@ -92,17 +95,41 @@ export function DashboardPage() {
         {activeTab === "overview" && (
           <section>
             <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-              Websites ({SITES.length})
+              Websites ({sitesLoading ? "…" : sites.length})
             </h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {SITES.map((site) => (
-                <SiteCard key={site.id} site={site} />
-              ))}
-            </div>
+            {sitesLoading ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-48 rounded-xl border border-zinc-800 bg-zinc-900 animate-pulse" />
+                ))}
+              </div>
+            ) : sites.length === 0 ? (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-12 text-center">
+                <p className="text-sm text-zinc-500">Nog geen websites toegevoegd.</p>
+                <button
+                  onClick={() => setActiveTab("websites")}
+                  className="mt-3 text-xs text-zinc-400 underline hover:text-white transition-colors"
+                >
+                  Voeg je eerste website toe →
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {sites.map((site) => (
+                  <SiteCard key={site.id} site={site} />
+                ))}
+              </div>
+            )}
           </section>
         )}
 
-        {activeTab === "actions" && <GitHubActionsMonitor />}
+        {activeTab === "actions" && <GitHubActionsMonitor sites={sites} />}
+
+        {activeTab === "websites" && (
+          <section>
+            <SiteForm />
+          </section>
+        )}
 
         {activeTab === "domains" && (
           <section>

@@ -4,7 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { nl } from "date-fns/locale";
 import { ExternalLink, RefreshCw, Clock, GitBranch as GithubIcon, Zap } from "lucide-react";
 import { clsx } from "clsx";
-import { SITES, getGitHubActionsUrl } from "../../config/sites";
+import { getGitHubActionsUrl } from "../../config/sites";
 import { StatusBadge } from "./StatusBadge";
 import { getStatusVariant } from "../../hooks/useGitHubStatus";
 
@@ -157,7 +157,23 @@ function RepoSection({ site }) {
   );
 }
 
-export function GitHubActionsMonitor() {
+export function GitHubActionsMonitor({ sites = [] }) {
+  if (sites.length === 0) {
+    return (
+      <section>
+        <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+          GitHub Actions
+        </h2>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-12 text-center">
+          <p className="text-sm text-zinc-500">Nog geen websites geconfigureerd.</p>
+          <p className="text-xs text-zinc-600 mt-1">
+            Voeg een website toe via het tabblad "Websites".
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section>
       <div className="mb-4 flex items-center justify-between">
@@ -171,7 +187,7 @@ export function GitHubActionsMonitor() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {SITES.map((site) => (
+        {sites.map((site) => (
           <RepoSection key={site.id} site={site} />
         ))}
       </div>
