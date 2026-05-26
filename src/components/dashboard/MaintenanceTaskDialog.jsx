@@ -14,6 +14,7 @@ const INTERVALS = [
 ];
 
 const TYPES = [
+  { value: "task",        label: "Taak"                    },
   { value: "improvement", label: "Verbetering / onderhoud" },
   { value: "bug",         label: "Bug"                     },
   { value: "feature",     label: "Feature"                 },
@@ -24,7 +25,7 @@ export function MaintenanceTaskDialog({ site, onClose }) {
   const [label, setLabel]       = useState("");
   const [notes, setNotes]       = useState("");
   const [interval, setInterval] = useState("Maandelijks");
-  const [type, setType]         = useState("improvement");
+  const [type, setType]         = useState("task");
   const [status, setStatus]     = useState(null); // null | "sending" | "ok" | "error"
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -55,6 +56,7 @@ export function MaintenanceTaskDialog({ site, onClose }) {
         label:         label.trim(),
         notes:         notes.trim(),
         siteName:      site?.name,
+        siteUrl:       site?.url,
         intervalLabel: interval,
         userEmail:     user?.email,
         siteTagId:     site?.siteTagId || undefined,

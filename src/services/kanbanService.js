@@ -9,11 +9,30 @@ const BOARD_ID  = 'XOhvgrJn3VYr7mR6vjsG';
 const COLUMN_ID = 'NouTYAysQ5KsQkqGWXRx';
 const OWNER_UID = 'KNjbJuZV1MZMEUQKsViehVhW3832';
 
+// Hostname → Kanban site-tag ID
+const SITE_TAGS = {
+  'localhost':             '9UL9hXvhnrjm3ulil59B',
+  'prive-jo.web.app':      'Tds44nUDMQq8XD1BKAKg',
+  'optech-jo.web.app':     '9X8gSwm8hRyzLQimv2S6',
+  'optech-jo-dev.web.app': '9X8gSwm8hRyzLQimv2S6',
+  'prive-jo-dev.web.app':  'Tds44nUDMQq8XD1BKAKg',
+};
+
+function resolveSiteTagId(siteUrl, manualOverride) {
+  if (manualOverride) return manualOverride;
+  try {
+    const hostname = new URL(siteUrl).hostname;
+    return SITE_TAGS[hostname] || null;
+  } catch {
+    return null;
+  }
+}
+
 export function isKanbanConfigured() {
   return !!(API_URL && API_KEY);
 }
 
-export async function sendMaintenanceTaskToKanban({ label, notes, siteName, intervalLabel, userEmail, siteTagId, type = 'improvement' }) {
+export async function sendMaintenanceTaskToKanban({ label, notes, siteName, siteUrl, intervalLabel, userEmail, siteTagId, type = 'task' }) {
   if (!isKanbanConfigured()) throw new Error('VITE_KANBAN_API_URL of VITE_KANBAN_API_KEY niet ingesteld.');
 
   const lines = [
@@ -24,6 +43,8 @@ export async function sendMaintenanceTaskToKanban({ label, notes, siteName, inte
     siteName      ? `Website: ${siteName}`       : '',
     intervalLabel ? `Interval: ${intervalLabel}` : '',
   ].filter(Boolean);
+
+  const resolvedTagId = resolveSiteTagId(siteUrl, siteTagId);
 
   const body = {
     type:           type,
@@ -36,7 +57,7 @@ export async function sendMaintenanceTaskToKanban({ label, notes, siteName, inte
     ownerUid:       OWNER_UID,
     sourceSiteName: siteName || 'Admin Dashboard',
   };
-  if (siteTagId) body.siteTagId = siteTagId;
+  if (resolvedTagId) body.siteTagId = resolvedTagId;
 
   const res = await fetch(API_URL, {
     method: 'POST',
