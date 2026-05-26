@@ -1,5 +1,6 @@
 // src/components/dashboard/SiteCard.jsx
-import { ExternalLink, GitBranch as GithubIcon, Flame, Key } from "lucide-react";
+import { useState } from "react";
+import { ExternalLink, GitBranch as GithubIcon, Flame, Key, Wrench } from "lucide-react";
 import { clsx } from "clsx";
 import { StatusBadge } from "./StatusBadge";
 import { useGitHubStatus, getStatusVariant } from "../../hooks/useGitHubStatus";
@@ -7,6 +8,8 @@ import { usePageSpeed, getScoreColor } from "../../hooks/usePageSpeed";
 import { useUptimeCheck } from "../../hooks/useUptimeCheck";
 import { useUptimePercent } from "../../hooks/useUptimeHistory";
 import { getGitHubUrl, getFirebaseConsoleUrl, getGitHubActionsUrl } from "../../config/sites";
+import { MaintenanceTaskDialog } from "./MaintenanceTaskDialog";
+import { isKanbanConfigured } from "../../services/kanbanService";
 
 const dotColor = {
   success: "bg-emerald-500",
@@ -38,6 +41,7 @@ export function SiteCard({ site, expiringTokens = [] }) {
   const { data: psData, isLoading: psLoading } = usePageSpeed(site.url);
   const { data: upData, isLoading: upLoading } = useUptimeCheck(site.url);
   const uptimePercent = useUptimePercent(site.url);
+  const [showMaintenance, setShowMaintenance] = useState(false);
 
   const statusVariant = ghLoading
     ? "unknown"
@@ -157,7 +161,21 @@ export function SiteCard({ site, expiringTokens = [] }) {
         <QuickLink href={getGitHubActionsUrl(site.owner, site.repo)} icon={GithubIcon} label="Actions" />
         <QuickLink href={getGitHubUrl(site.owner, site.repo)} icon={GithubIcon} label="Repo" />
         <QuickLink href={getFirebaseConsoleUrl(site.firebaseProject)} icon={Flame} label="Firebase" />
+        {isKanbanConfigured() && (
+          <button
+            onClick={() => setShowMaintenance(true)}
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-zinc-700 hover:text-white transition-colors"
+            title="Onderhoudstaak aanmaken"
+          >
+            <Wrench size={13} />
+            Onderhoud
+          </button>
+        )}
       </div>
+
+      {showMaintenance && (
+        <MaintenanceTaskDialog site={site} onClose={() => setShowMaintenance(false)} />
+      )}
     </div>
   );
 }
