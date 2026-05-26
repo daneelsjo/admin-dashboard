@@ -3,14 +3,16 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useSites } from "../hooks/useSites";
 import { useTokens } from "../hooks/useTokens";
+import { useGitHubStatusPage } from "../hooks/useGitHubStatusPage";
 import { SiteCard } from "../components/dashboard/SiteCard";
 import { DomainTable } from "../components/admin/DomainTable";
 import { SiteForm } from "../components/admin/SiteForm";
 import { TokenTable } from "../components/admin/TokenTable";
 import { GitHubActionsMonitor } from "../components/dashboard/GitHubActionsMonitor";
+import { GitHubStatusPanel } from "../components/dashboard/GitHubStatusPanel";
 import {
   Flame, LayoutGrid, Database, LogOut, RefreshCw,
-  GitPullRequest, Globe, AlertTriangle, Key,
+  GitPullRequest, Globe, AlertTriangle, Key, Activity,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDomainWarnings } from "../hooks/useDomainWarnings";
@@ -24,7 +26,8 @@ const TABS = [
   { id: "actions",  label: "GitHub Actions", Icon: GitPullRequest },
   { id: "websites", label: "Websites",       Icon: Globe         },
   { id: "domains",  label: "Domeinen",       Icon: Database      },
-  { id: "tokens",   label: "API Keys",       Icon: Key           },
+  { id: "tokens",    label: "API Keys",       Icon: Key      },
+  { id: "ghstatus", label: "GitHub Status",  Icon: Activity },
 ];
 
 function isExpiringSoon(dateStr) {
@@ -40,9 +43,14 @@ export function DashboardPage() {
   const { sites, loading: sitesLoading } = useSites();
   const { tokens }                       = useTokens();
   const expiringDomains                  = useDomainWarnings();
+  const { data: ghStatusData }           = useGitHubStatusPage();
 
   // Tokens expiring within 30 days
   const expiringTokens = tokens.filter((t) => isExpiringSoon(t.expiryDate));
+
+  // GitHub platform status
+  const ghStatusIndicator = ghStatusData?.status?.indicator ?? "none";
+  const ghStatusProblem   = ghStatusIndicator !== "none";
 
   // Current time for footer, updated every minute
   const [now, setNow] = useState(new Date());
@@ -122,11 +130,12 @@ export function DashboardPage() {
 
           <nav className="flex items-center gap-1">
             {TABS.map(({ id, label, Icon }) => {
-              const hasActionsBadge = id === "actions" && failedCount > 0;
-              const hasDomainsBadge = id === "domains" && expiringDomains.length > 0;
-              const hasTokensBadge  = id === "tokens"  && expiringTokens.length > 0;
-              const hasBadge        = hasActionsBadge || hasDomainsBadge || hasTokensBadge;
-              const badgeColor      = hasActionsBadge ? "bg-red-500" : "bg-amber-500";
+              const hasActionsBadge  = id === "actions"   && failedCount > 0;
+              const hasDomainsBadge  = id === "domains"   && expiringDomains.length > 0;
+              const hasTokensBadge   = id === "tokens"    && expiringTokens.length > 0;
+              const hasGhStatusBadge = id === "ghstatus"  && ghStatusProblem;
+              const hasBadge         = hasActionsBadge || hasDomainsBadge || hasTokensBadge || hasGhStatusBadge;
+              const badgeColor       = hasActionsBadge || hasGhStatusBadge ? "bg-red-500" : "bg-amber-500";
               return (
                 <button
                   key={id}
@@ -274,10 +283,11 @@ export function DashboardPage() {
           </section>
         )}
 
-        {activeTab === "actions"  && <GitHubActionsMonitor sites={sites} />}
-        {activeTab === "websites" && <section><SiteForm /></section>}
-        {activeTab === "domains"  && <section><DomainTable /></section>}
-        {activeTab === "tokens"   && <section><TokenTable /></section>}
+        {activeTab === "actions"   && <GitHubActionsMonitor sites={sites} />}
+        {activeTab === "websites"  && <section><SiteForm /></section>}
+        {activeTab === "domains"   && <section><DomainTable /></section>}
+        {activeTab === "tokens"    && <section><TokenTable /></section>}
+        {activeTab === "ghstatus"  && <GitHubStatusPanel />}
       </main>
 
       {/* Footer */}
