@@ -32,6 +32,8 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_GITHUB_TOKEN: ${{ secrets.VITE_GITHUB_TOKEN }}
           VITE_PAGESPEED_API_KEY: ${{ secrets.VITE_PAGESPEED_API_KEY }}
+          VITE_KANBAN_API_URL: ${{ secrets.VITE_KANBAN_API_URL }}
+          VITE_KANBAN_API_KEY: ${{ secrets.VITE_KANBAN_API_KEY }}
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
