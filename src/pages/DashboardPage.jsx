@@ -2,13 +2,15 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useSites } from "../hooks/useSites";
+import { useTokens } from "../hooks/useTokens";
 import { SiteCard } from "../components/dashboard/SiteCard";
 import { DomainTable } from "../components/admin/DomainTable";
 import { SiteForm } from "../components/admin/SiteForm";
+import { TokenTable } from "../components/admin/TokenTable";
 import { GitHubActionsMonitor } from "../components/dashboard/GitHubActionsMonitor";
 import {
   Flame, LayoutGrid, Database, LogOut, RefreshCw,
-  GitPullRequest, Globe, AlertTriangle,
+  GitPullRequest, Globe, AlertTriangle, Key,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDomainWarnings } from "../hooks/useDomainWarnings";
@@ -22,16 +24,27 @@ const TABS = [
   { id: "actions",  label: "GitHub Actions", Icon: GitPullRequest },
   { id: "websites", label: "Websites",       Icon: Globe         },
   { id: "domains",  label: "Domeinen",       Icon: Database      },
+  { id: "tokens",   label: "API Keys",       Icon: Key           },
 ];
 
-export function DashboardPage() {
-  const { user, logout }              = useAuth();
-  const [activeTab, setActiveTab]     = useState("overview");
-  const queryClient                   = useQueryClient();
-  const { sites, loading: sitesLoading } = useSites();
-  const expiringDomains               = useDomainWarnings();
+function isExpiringSoon(dateStr) {
+  if (!dateStr) return false;
+  const days = differenceInDays(parseISO(dateStr), new Date());
+  return isPast(parseISO(dateStr)) || days <= 30;
+}
 
-  // Current time for last-synced footer, updated every minute
+export function DashboardPage() {
+  const { user, logout }                 = useAuth();
+  const [activeTab, setActiveTab]        = useState("overview");
+  const queryClient                      = useQueryClient();
+  const { sites, loading: sitesLoading } = useSites();
+  const { tokens }                       = useTokens();
+  const expiringDomains                  = useDomainWarnings();
+
+  // Tokens expiring within 30 days
+  const expiringTokens = tokens.filter((t) => isExpiringSoon(t.expiryDate));
+
+  // Current time for footer, updated every minute
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
@@ -67,32 +80,28 @@ export function DashboardPage() {
 
   const statsData = [
     {
-      label: "Online",
-      value: sitesLoading ? "—" : `${onlineCount} / ${sites.length}`,
-      sub: "websites bereikbaar",
-      accent:
-        !sitesLoading && sites.length > 0 && onlineCount === sites.length
-          ? "text-emerald-400"
-          : onlineCount > 0
-          ? "text-amber-400"
-          : "text-zinc-300",
+      label:  "Online",
+      value:  sitesLoading ? "—" : `${onlineCount} / ${sites.length}`,
+      sub:    "websites bereikbaar",
+      accent: !sitesLoading && sites.length > 0 && onlineCount === sites.length
+        ? "text-emerald-400" : onlineCount > 0 ? "text-amber-400" : "text-zinc-300",
     },
     {
-      label: "Mislukte deploys",
-      value: sitesLoading ? "—" : failedCount,
-      sub: failedCount > 0 ? "check GitHub Actions" : "alles groen",
+      label:  "Mislukte deploys",
+      value:  sitesLoading ? "—" : failedCount,
+      sub:    failedCount > 0 ? "check GitHub Actions" : "alles groen",
       accent: failedCount > 0 ? "text-red-400" : "text-emerald-400",
     },
     {
-      label: "Domeinen",
-      value: expiringDomains.length || "—",
-      sub: expiringDomains.length > 0 ? "verlopen binnenkort" : "alles ok",
+      label:  "Domeinen",
+      value:  expiringDomains.length || "—",
+      sub:    expiringDomains.length > 0 ? "verlopen binnenkort" : "alles ok",
       accent: expiringDomains.length > 0 ? "text-amber-400" : "text-zinc-300",
     },
     {
-      label: "PSI gemiddeld",
-      value: avgPsi ?? "—",
-      sub: "mobile performance",
+      label:  "PSI gemiddeld",
+      value:  avgPsi ?? "—",
+      sub:    "mobile performance",
       accent: getScoreColor(avgPsi),
     },
   ];
@@ -113,8 +122,11 @@ export function DashboardPage() {
 
           <nav className="flex items-center gap-1">
             {TABS.map(({ id, label, Icon }) => {
-              const hasActionsBadge = id === "actions"  && failedCount > 0;
-              const hasDomainsBadge = id === "domains"  && expiringDomains.length > 0;
+              const hasActionsBadge = id === "actions" && failedCount > 0;
+              const hasDomainsBadge = id === "domains" && expiringDomains.length > 0;
+              const hasTokensBadge  = id === "tokens"  && expiringTokens.length > 0;
+              const hasBadge        = hasActionsBadge || hasDomainsBadge || hasTokensBadge;
+              const badgeColor      = hasActionsBadge ? "bg-red-500" : "bg-amber-500";
               return (
                 <button
                   key={id}
@@ -126,13 +138,8 @@ export function DashboardPage() {
                 >
                   <Icon size={13} />
                   <span className="hidden sm:inline">{label}</span>
-                  {(hasActionsBadge || hasDomainsBadge) && (
-                    <span
-                      className={clsx(
-                        "absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full",
-                        hasActionsBadge ? "bg-red-500" : "bg-amber-500"
-                      )}
-                    />
+                  {hasBadge && (
+                    <span className={clsx("absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full", badgeColor)} />
                   )}
                 </button>
               );
@@ -175,15 +182,13 @@ export function DashboardPage() {
         {/* Tab content */}
         {activeTab === "overview" && (
           <section>
-            {/* Domain expiry warning banner */}
+            {/* Domain expiry warning */}
             {expiringDomains.length > 0 && (
-              <div className="mb-6 rounded-xl border border-amber-800/60 bg-amber-950/40 px-4 py-3 flex items-start gap-3">
+              <div className="mb-4 rounded-xl border border-amber-800/60 bg-amber-950/40 px-4 py-3 flex items-start gap-3">
                 <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-amber-300">
-                    {expiringDomains.length === 1
-                      ? "1 domein verloopt binnenkort"
-                      : `${expiringDomains.length} domeinen verlopen binnenkort`}
+                    {expiringDomains.length === 1 ? "1 domein verloopt binnenkort" : `${expiringDomains.length} domeinen verlopen binnenkort`}
                   </p>
                   <ul className="mt-1 space-y-0.5">
                     {expiringDomains.map((d) => {
@@ -193,9 +198,41 @@ export function DashboardPage() {
                         <li key={d.id} className="text-xs text-amber-500/80">
                           <span className="font-mono text-amber-300">{d.domain ?? d.name}</span>
                           {" — "}
-                          {expired
-                            ? <span className="text-red-400">verlopen</span>
-                            : `verloopt over ${days} dag${days !== 1 ? "en" : ""}`}
+                          {expired ? <span className="text-red-400">verlopen</span> : `verloopt over ${days} dag${days !== 1 ? "en" : ""}`}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {/* Token expiry warning */}
+            {expiringTokens.length > 0 && (
+              <div className="mb-6 rounded-xl border border-amber-800/60 bg-amber-950/40 px-4 py-3 flex items-start gap-3">
+                <Key size={15} className="text-amber-400 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-amber-300">
+                    {expiringTokens.length === 1 ? "1 API key verloopt binnenkort" : `${expiringTokens.length} API keys verlopen binnenkort`}
+                  </p>
+                  <ul className="mt-1 space-y-0.5">
+                    {expiringTokens.map((t) => {
+                      const expired = isPast(parseISO(t.expiryDate));
+                      const days    = differenceInDays(parseISO(t.expiryDate), new Date());
+                      return (
+                        <li key={t.id} className="text-xs text-amber-500/80 flex items-center gap-2">
+                          <span className="text-amber-300 font-medium">{t.label}</span>
+                          {t.service && <span className="text-zinc-600">· {t.service}</span>}
+                          {" — "}
+                          {expired ? <span className="text-red-400">verlopen</span> : `verloopt over ${days} dag${days !== 1 ? "en" : ""}`}
+                          {t.renewUrl && (
+                            <a href={t.renewUrl} target="_blank" rel="noopener noreferrer"
+                              className="text-zinc-500 hover:text-white transition-colors ml-1"
+                              title="Vernieuwen"
+                            >
+                              <ExternalLinkInline />
+                            </a>
+                          )}
                         </li>
                       );
                     })}
@@ -226,7 +263,11 @@ export function DashboardPage() {
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {sites.map((site) => (
-                  <SiteCard key={site.id} site={site} />
+                  <SiteCard
+                    key={site.id}
+                    site={site}
+                    expiringTokens={expiringTokens.filter((t) => t.siteId === site.id)}
+                  />
                 ))}
               </div>
             )}
@@ -236,6 +277,7 @@ export function DashboardPage() {
         {activeTab === "actions"  && <GitHubActionsMonitor sites={sites} />}
         {activeTab === "websites" && <section><SiteForm /></section>}
         {activeTab === "domains"  && <section><DomainTable /></section>}
+        {activeTab === "tokens"   && <section><TokenTable /></section>}
       </main>
 
       {/* Footer */}
@@ -243,5 +285,16 @@ export function DashboardPage() {
         Live data — bijgewerkt om {now.toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" })}
       </footer>
     </div>
+  );
+}
+
+// Inline icon to avoid import duplication
+function ExternalLinkInline() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline" }}>
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+      <polyline points="15 3 21 3 21 9"/>
+      <line x1="10" y1="14" x2="21" y2="3"/>
+    </svg>
   );
 }

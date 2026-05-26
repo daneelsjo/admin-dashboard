@@ -1,5 +1,5 @@
 // src/components/dashboard/SiteCard.jsx
-import { ExternalLink, GitBranch as GithubIcon, Flame } from "lucide-react";
+import { ExternalLink, GitBranch as GithubIcon, Flame, Key } from "lucide-react";
 import { clsx } from "clsx";
 import { StatusBadge } from "./StatusBadge";
 import { useGitHubStatus, getStatusVariant } from "../../hooks/useGitHubStatus";
@@ -31,7 +31,9 @@ function QuickLink({ href, icon: Icon, label }) {
   );
 }
 
-export function SiteCard({ site }) {
+import { differenceInDays, parseISO, isPast } from "date-fns";
+
+export function SiteCard({ site, expiringTokens = [] }) {
   const { data: ghData, isLoading: ghLoading } = useGitHubStatus(site.owner, site.repo);
   const { data: psData, isLoading: psLoading } = usePageSpeed(site.url);
   const { data: upData, isLoading: upLoading } = useUptimeCheck(site.url);
@@ -119,6 +121,35 @@ export function SiteCard({ site }) {
           </div>
         )}
       </div>
+
+      {/* Expiring tokens */}
+      {expiringTokens.length > 0 && (
+        <div className="mt-3 rounded-lg border border-amber-800/50 bg-amber-950/30 px-3 py-2 space-y-1">
+          {expiringTokens.map((t) => {
+            const expired = isPast(parseISO(t.expiryDate));
+            const days    = differenceInDays(parseISO(t.expiryDate), new Date());
+            return (
+              <div key={t.id} className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Key size={11} className="text-amber-400 shrink-0" />
+                  <span className="text-xs text-amber-300 truncate">{t.label}</span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className={clsx("text-xs", expired ? "text-red-400" : "text-amber-500")}>
+                    {expired ? "verlopen" : `${days}d`}
+                  </span>
+                  {t.renewUrl && (
+                    <a href={t.renewUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-zinc-500 hover:text-white transition-colors" title="Vernieuwen">
+                      <ExternalLink size={11} />
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Quick links */}
       <div className="mt-4 flex flex-wrap items-center gap-1 border-t border-zinc-800 pt-3">
