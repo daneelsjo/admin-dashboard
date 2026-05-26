@@ -108,7 +108,63 @@ De kaarten worden opgeslagen in de Firestore van het **prive-jo** project.
 
 ---
 
-## 5. Lokale ontwikkeling starten
+## 5. Dependency-updates
+
+### Hoe controleren?
+
+```bash
+# In de map van het admin dashboard:
+npm outdated
+```
+
+Dit toont welke pakketten een nieuwe versie hebben. Kolom *Wanted* = veilige update binnen je versierange, *Latest* = nieuwste beschikbare.
+
+```bash
+# Alle pakketten updaten binnen de opgegeven versieranges (veilig):
+npm update
+
+# Specifiek pakket naar de absolute laatste versie brengen:
+npm install pakketnaam@latest
+```
+
+Doe hetzelfde in `melding_to_kanban/functions/` voor de Cloud Function dependencies.
+
+### Hoe vaak?
+
+| Cadans | Wat |
+|---|---|
+| **Maandelijks** | `npm outdated` draaien en patch/minor updates toepassen (`npm update`) |
+| **Per kwartaal** | Major updates bekijken (bv. Tailwind v4 → v5, React 19 → 20) — lees eerst de migratiegids |
+| **Bij beveiligingsmelding** | `npm audit` draaien en `npm audit fix` toepassen |
+
+### Node.js
+
+Huidig gebruikte versie: **v22** (LTS). De GitHub Actions workflow bouwt ook op Node 20 (zie `.github/workflows/deploy.yml`).
+
+| Wanneer updaten | Hoe |
+|---|---|
+| Nieuwe LTS-versie beschikbaar (elke 2 jaar, in oktober) | Installeer via [nodejs.org](https://nodejs.org) of `nvm`; update ook de `node-version` in `deploy.yml` |
+| Node-versie klopt niet meer met Firebase Functions | Kijk in `melding_to_kanban/functions/package.json` naar het `engines`-veld |
+
+### Belangrijkste pakketten om in de gaten te houden
+
+| Pakket | Huidig | Waarom opletten |
+|---|---|---|
+| `tailwindcss` | v4 | Major versies bevatten breaking changes in class-namen |
+| `firebase` | v12 | Volg de Firebase release notes — soms deprecated API's |
+| `vite` | v8 | Major updates kunnen build-configuratie breken |
+| `react` / `react-dom` | v19 | Major updates alleen na lezen van de migratiegids |
+| `vite-plugin-pwa` | v1 | Afhankelijk van Vite-versie, update samen |
+
+### Na elke update
+
+1. `npm run build` — controleert of de productie-build nog werkt
+2. `npm run dev` — kort testen in de browser
+3. Commit + push → GitHub Actions deployt automatisch
+
+---
+
+## 6. Lokale ontwikkeling starten
 
 ```bash
 # In de map van het admin dashboard:
