@@ -18,6 +18,14 @@ const SITE_TAGS = {
   'prive-jo-dev.web.app':  'Tds44nUDMQq8XD1BKAKg',
 };
 
+const RECURRENCE_MAP = {
+  'Wekelijks':       'weekly',
+  'Tweewekelijks':   'biweekly',
+  'Maandelijks':     'monthly',
+  'Driemaandelijks': 'quarterly',
+  'Jaarlijks':       'yearly',
+};
+
 function resolveSiteTagId(siteUrl, manualOverride) {
   if (manualOverride) return manualOverride;
   try {
@@ -58,6 +66,7 @@ export async function sendMaintenanceTaskToKanban({ label, notes, siteName, site
     sourceSiteName: siteName || 'Admin Dashboard',
   };
   if (resolvedTagId) body.siteTagId = resolvedTagId;
+  if (intervalLabel) body.recurrence = RECURRENCE_MAP[intervalLabel] ?? intervalLabel.toLowerCase();
 
   const res = await fetch(API_URL, {
     method: 'POST',
