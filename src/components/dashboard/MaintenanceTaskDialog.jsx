@@ -6,11 +6,17 @@ import { sendMaintenanceTaskToKanban, isKanbanConfigured } from "../../services/
 import { useAuth } from "../../contexts/AuthContext";
 
 const INTERVALS = [
-  { value: "Wekelijks",    label: "Wekelijks"    },
-  { value: "Tweewekelijks", label: "Tweewekelijks" },
-  { value: "Maandelijks",  label: "Maandelijks"  },
+  { value: "Wekelijks",       label: "Wekelijks"       },
+  { value: "Tweewekelijks",   label: "Tweewekelijks"   },
+  { value: "Maandelijks",     label: "Maandelijks"     },
   { value: "Driemaandelijks", label: "Driemaandelijks" },
-  { value: "Jaarlijks",   label: "Jaarlijks"    },
+  { value: "Jaarlijks",       label: "Jaarlijks"       },
+];
+
+const TYPES = [
+  { value: "improvement", label: "Verbetering / onderhoud" },
+  { value: "bug",         label: "Bug"                     },
+  { value: "feature",     label: "Feature"                 },
 ];
 
 export function MaintenanceTaskDialog({ site, onClose }) {
@@ -18,6 +24,7 @@ export function MaintenanceTaskDialog({ site, onClose }) {
   const [label, setLabel]       = useState("");
   const [notes, setNotes]       = useState("");
   const [interval, setInterval] = useState("Maandelijks");
+  const [type, setType]         = useState("improvement");
   const [status, setStatus]     = useState(null); // null | "sending" | "ok" | "error"
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -50,6 +57,8 @@ export function MaintenanceTaskDialog({ site, onClose }) {
         siteName:      site?.name,
         intervalLabel: interval,
         userEmail:     user?.email,
+        siteTagId:     site?.siteTagId || undefined,
+        type,
       });
       setStatus("ok");
     } catch (err) {
@@ -102,17 +111,31 @@ export function MaintenanceTaskDialog({ site, onClose }) {
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-1">Interval</label>
-          <select
-            value={interval}
-            onChange={(e) => setInterval(e.target.value)}
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white focus:border-zinc-500 focus:outline-none"
-          >
-            {INTERVALS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Interval</label>
+            <select
+              value={interval}
+              onChange={(e) => setInterval(e.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white focus:border-zinc-500 focus:outline-none"
+            >
+              {INTERVALS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Type</label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white focus:border-zinc-500 focus:outline-none"
+            >
+              {TYPES.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div>

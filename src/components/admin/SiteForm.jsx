@@ -13,6 +13,7 @@ const emptyForm = {
   repo: "",
   firebaseProject: "",
   notes: "",
+  siteTagId: "",
 };
 
 const FIELDS = [
@@ -22,6 +23,7 @@ const FIELDS = [
   { name: "owner",           label: "GitHub owner",        placeholder: "daneelsjo",                 required: true,  col: 1 },
   { name: "repo",            label: "GitHub repository",   placeholder: "mijn-repo-naam",            required: true,  col: 1 },
   { name: "firebaseProject", label: "Firebase project ID", placeholder: "mijn-project-id",           required: false, col: 2 },
+  { name: "siteTagId",       label: "Kanban site-tag ID",  placeholder: "Firestore tag-document ID", required: false, col: 2 },
   { name: "notes",           label: "Notities",            placeholder: "Klant: X · staging · ...", required: false, col: 2, textarea: true },
 ];
 
@@ -62,6 +64,7 @@ export function SiteForm() {
       repo:            site.repo            ?? "",
       firebaseProject: site.firebaseProject ?? "",
       notes:           site.notes           ?? "",
+      siteTagId:       site.siteTagId       ?? "",
     });
     setEditId(site.id);
     setShowForm(true);

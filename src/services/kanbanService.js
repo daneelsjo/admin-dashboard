@@ -13,7 +13,7 @@ export function isKanbanConfigured() {
   return !!(API_URL && API_KEY);
 }
 
-export async function sendMaintenanceTaskToKanban({ label, notes, siteName, intervalLabel, userEmail }) {
+export async function sendMaintenanceTaskToKanban({ label, notes, siteName, intervalLabel, userEmail, siteTagId, type = 'improvement' }) {
   if (!isKanbanConfigured()) throw new Error('VITE_KANBAN_API_URL of VITE_KANBAN_API_KEY niet ingesteld.');
 
   const lines = [
@@ -21,9 +21,22 @@ export async function sendMaintenanceTaskToKanban({ label, notes, siteName, inte
     '',
     '---',
     '🔧 Terugkerende onderhoudstaak via Admin Dashboard',
-    siteName    ? `Website: ${siteName}`      : '',
+    siteName      ? `Website: ${siteName}`       : '',
     intervalLabel ? `Interval: ${intervalLabel}` : '',
   ].filter(Boolean);
+
+  const body = {
+    type:           type,
+    subject:        label,
+    name:           'Admin Dashboard',
+    email:          userEmail || 'admin@dashboard',
+    description:    lines.join('\n'),
+    boardId:        BOARD_ID,
+    statusId:       COLUMN_ID,
+    ownerUid:       OWNER_UID,
+    sourceSiteName: siteName || 'Admin Dashboard',
+  };
+  if (siteTagId) body.siteTagId = siteTagId;
 
   const res = await fetch(API_URL, {
     method: 'POST',
@@ -31,17 +44,7 @@ export async function sendMaintenanceTaskToKanban({ label, notes, siteName, inte
       'Content-Type': 'application/json',
       'X-API-Key': API_KEY,
     },
-    body: JSON.stringify({
-      type:           'improvement',
-      subject:        label,
-      name:           'Admin Dashboard',
-      email:          userEmail || 'admin@dashboard',
-      description:    lines.join('\n'),
-      boardId:        BOARD_ID,
-      statusId:       COLUMN_ID,
-      ownerUid:       OWNER_UID,
-      sourceSiteName: 'Admin Dashboard',
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
