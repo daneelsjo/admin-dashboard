@@ -10,7 +10,7 @@ Overzicht van alle systemen, waar je ze beheert en wat je wanneer moet bijwerken
 |---|---|
 | **Repo** | `github.com/daneelsjo/admin-dashboard` |
 | **Firebase project** | `admin-dashboard-5cf7a` |
-| **Live URL** | Firebase Hosting (via GitHub Actions bij push naar `main`) |
+| **Live URL** | `https://admin.jdstack.dev` (custom domain via Firebase Hosting) |
 | **Lokale dev** | `npm run dev` in deze map |
 
 ### Wat aanpassen?
