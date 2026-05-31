@@ -14,6 +14,7 @@ import { differenceInDays, parseISO, format, isPast } from "date-fns";
 import { Plus, Trash2, AlertTriangle, CheckCircle, Pencil } from "lucide-react";
 import { clsx } from "clsx";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { useSites } from "../../hooks/useSites";
 
 const COLLECTION = "domains";
 
@@ -44,6 +45,7 @@ function ExpiryBadge({ dateStr }) {
 const emptyForm = { name: "", provider: "", expiryDate: "" };
 
 export function DomainTable() {
+  const { sites } = useSites();
   const [domains, setDomains]         = useState([]);
   const [form, setForm]               = useState(emptyForm);
   const [editId, setEditId]           = useState(null);
@@ -177,7 +179,7 @@ export function DomainTable() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-900/50">
-              {["Domein", "Provider", "Vervaldatum", "Status", ""].map((h) => (
+              {["Domein", "Provider", "Vervaldatum", "Status", "Sites", ""].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-medium text-zinc-500">
                   {h}
                 </th>
@@ -187,7 +189,7 @@ export function DomainTable() {
           <tbody>
             {domains.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-sm text-zinc-600">
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-zinc-600">
                   Nog geen domeinen toegevoegd.
                 </td>
               </tr>
@@ -204,6 +206,21 @@ export function DomainTable() {
                 </td>
                 <td className="px-4 py-3">
                   <ExpiryBadge dateStr={domain.expiryDate} />
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap gap-1">
+                    {sites.filter((s) => s.domainId === domain.id).map((s) => (
+                      <span
+                        key={s.id}
+                        className="inline-block rounded-full border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300"
+                      >
+                        {s.name}
+                      </span>
+                    ))}
+                    {sites.filter((s) => s.domainId === domain.id).length === 0 && (
+                      <span className="text-xs text-zinc-600">—</span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
