@@ -1,6 +1,7 @@
 // src/components/admin/SiteForm.jsx
 import { useState } from "react";
 import { useSites } from "../../hooks/useSites";
+import { useDomains } from "../../hooks/useDomains";
 import { Plus, Pencil, Trash2, ExternalLink, X } from "lucide-react";
 import { clsx } from "clsx";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
@@ -14,6 +15,7 @@ const emptyForm = {
   firebaseProject: "",
   notes: "",
   siteTagId: "",
+  domainId: "",
 };
 
 const FIELDS = [
@@ -29,6 +31,7 @@ const FIELDS = [
 
 export function SiteForm() {
   const { sites, loading, addSite, updateSite, deleteSite } = useSites();
+  const domains = useDomains();
   const [form, setForm]           = useState(emptyForm);
   const [editId, setEditId]       = useState(null);
   const [showForm, setShowForm]   = useState(false);
@@ -65,6 +68,7 @@ export function SiteForm() {
       firebaseProject: site.firebaseProject ?? "",
       notes:           site.notes           ?? "",
       siteTagId:       site.siteTagId       ?? "",
+      domainId:        site.domainId        ?? "",
     });
     setEditId(site.id);
     setShowForm(true);
@@ -149,6 +153,24 @@ export function SiteForm() {
                 )}
               </div>
             ))}
+
+            {/* Domein koppelen */}
+            <div className="space-y-1 sm:col-span-2">
+              <label className="text-xs text-zinc-400">
+                Gekoppeld domein <span className="ml-1 text-zinc-600">(optioneel)</span>
+              </label>
+              <select
+                name="domainId"
+                value={form.domainId}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-zinc-500 focus:outline-none transition-colors"
+              >
+                <option value="">— geen —</option>
+                {domains.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 pt-1 border-t border-zinc-700">

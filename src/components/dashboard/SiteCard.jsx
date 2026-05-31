@@ -1,12 +1,13 @@
 // src/components/dashboard/SiteCard.jsx
 import { useState } from "react";
-import { ExternalLink, GitBranch as GithubIcon, Flame, Key, Wrench } from "lucide-react";
+import { ExternalLink, GitBranch as GithubIcon, Flame, Key, Wrench, Globe } from "lucide-react";
 import { clsx } from "clsx";
 import { StatusBadge } from "./StatusBadge";
 import { useGitHubStatus, getStatusVariant } from "../../hooks/useGitHubStatus";
 import { usePageSpeed, getScoreColor } from "../../hooks/usePageSpeed";
 import { useUptimeCheck } from "../../hooks/useUptimeCheck";
 import { useUptimePercent } from "../../hooks/useUptimeHistory";
+import { useDomains } from "../../hooks/useDomains";
 import { getGitHubUrl, getFirebaseConsoleUrl, getGitHubActionsUrl } from "../../config/sites";
 import { MaintenanceTaskDialog } from "./MaintenanceTaskDialog";
 import { isKanbanConfigured } from "../../services/kanbanService";
@@ -41,6 +42,8 @@ export function SiteCard({ site, expiringTokens = [] }) {
   const { data: psData, isLoading: psLoading } = usePageSpeed(site.url);
   const { data: upData, isLoading: upLoading } = useUptimeCheck(site.url);
   const uptimePercent = useUptimePercent(site.url);
+  const domains = useDomains();
+  const linkedDomain = site.domainId ? domains.find((d) => d.id === site.domainId) : null;
   const [showMaintenance, setShowMaintenance] = useState(false);
 
   const statusVariant = ghLoading
@@ -56,6 +59,9 @@ export function SiteCard({ site, expiringTokens = [] }) {
         <div>
           <h3 className="font-semibold text-white text-sm">{site.name}</h3>
           <p className="mt-0.5 text-xs text-zinc-500">{site.description}</p>
+          {linkedDomain && (
+            <DomainBadge domain={linkedDomain} />
+          )}
           {site.notes && (
             <p className="mt-0.5 text-xs text-zinc-600 italic">{site.notes}</p>
           )}
@@ -177,5 +183,28 @@ export function SiteCard({ site, expiringTokens = [] }) {
         <MaintenanceTaskDialog site={site} onClose={() => setShowMaintenance(false)} />
       )}
     </div>
+  );
+}
+
+function DomainBadge({ domain }) {
+  if (!domain.expiryDate) {
+    return (
+      <p className="mt-1 flex items-center gap-1 text-xs text-zinc-500">
+        <Globe size={10} />
+        {domain.name}
+      </p>
+    );
+  }
+  const expired  = isPast(parseISO(domain.expiryDate));
+  const days     = differenceInDays(parseISO(domain.expiryDate), new Date());
+  const warning  = expired || days <= 30;
+  return (
+    <p className={clsx("mt-1 flex items-center gap-1 text-xs", warning ? "text-amber-400" : "text-zinc-500")}>
+      <Globe size={10} />
+      {domain.name}
+      <span className={clsx("ml-1", expired ? "text-red-400" : warning ? "text-amber-400" : "text-zinc-600")}>
+        {expired ? "· verlopen" : warning ? `· ${days}d` : ""}
+      </span>
+    </p>
   );
 }
